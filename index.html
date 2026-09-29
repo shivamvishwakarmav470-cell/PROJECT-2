@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Do Poorer States Catch Up? — Income Convergence in India</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0f1035; --ink:#fdfbf6; --panel:#181a4d; --line:#33366e;
+  --c1:#ff5da2; --c2:#ffc857; --c3:#5ee6c4; --c4:#7c8cff;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){--bg:#fdfbf6;--ink:#151538;--panel:#ffffff;--line:#e4e1f3}
+}
+:root[data-theme="light"]{--bg:#fdfbf6;--ink:#151538;--panel:#ffffff;--line:#e4e1f3}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Space Grotesk",sans-serif;line-height:1.5}
+.wrap{max-width:960px;margin:0 auto;padding:40px 20px 64px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--c2);letter-spacing:.02em}
+h1{font-size:clamp(28px,5vw,44px);margin:8px 0 12px;max-width:18ch}
+.sub{max-width:60ch;opacity:.82;font-size:16px}
+section{margin:38px 0}
+h2{font-size:19px;margin:0 0 14px;display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.stat .n{font-size:28px;font-weight:700}
+.stat .l{font-family:"IBM Plex Mono",monospace;font-size:11.5px;opacity:.7;margin-top:2px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-top:16px}
+canvas{max-width:100%}
+p{max-width:70ch}
+table{width:100%;border-collapse:collapse;font-family:"IBM Plex Mono",monospace;font-size:12.5px;margin-top:4px}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+.note{font-family:"IBM Plex Mono",monospace;font-size:12px;opacity:.7;margin-top:10px}
+.verdict{font-size:15px;padding:14px 16px;border-radius:12px;border:1px solid var(--line);margin-top:14px}
+.src{font-size:12px;opacity:.65;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="kicker">ESS · Regional Economics — Growth & Convergence</div>
+  <h1>Do poorer Indian states grow faster?</h1>
+  <p class="sub">Testing the beta-convergence hypothesis: 14 states' per-capita income (2022–23 → 2023–24), from RBI/State Finances data.</p>
+</header>
+
+<section>
+  <h2><span class="dot" style="background:var(--c1)"></span>1. The states, ranked</h2>
+  <div class="panel"><canvas id="barChart" height="140"></canvas></div>
+  <p class="note">Per-capita Net State Domestic Product, 2023–24, current prices. Bar shade = income quartile.</p>
+</section>
+
+<section>
+  <h2><span class="dot" style="background:var(--c3)"></span>2. Growth vs. starting income</h2>
+  <div class="grid">
+    <div class="stat"><div class="n" id="stCorr">—</div><div class="l">correlation (r)</div></div>
+    <div class="stat"><div class="n" id="stR2">—</div><div class="l">R²</div></div>
+    <div class="stat"><div class="n" id="stSlope">—</div><div class="l">slope (β)</div></div>
+    <div class="stat"><div class="n" id="stCV">—</div><div class="l">CV of incomes</div></div>
+  </div>
+  <div class="panel"><canvas id="scatterChart" height="140"></canvas></div>
+  <p class="note">Each point is a state: x = log(2022–23 income), y = growth rate to 2023–24. A downward-sloping line supports convergence — poorer states catching up.</p>
+  <div class="verdict" id="verdict"></div>
+</section>
+
+<section>
+  <h2><span class="dot" style="background:var(--c4)"></span>3. Data</h2>
+  <div class="panel">
+    <table><thead><tr><th>State</th><th>2022–23 (₹)</th><th>2023–24 (₹)</th><th>Growth %</th></tr></thead><tbody id="dataBody"></tbody></table>
+  </div>
+  <p class="src">Per-capita NSDP figures (current prices) collected from RBI's Handbook of Statistics on Indian States / State Finances publications. Figures are illustrative — verify and refresh from rbi.org.in or mospi.gov.in before citing in a submitted report, and feel free to swap in a longer state list or more recent year.</p>
+</section>
+
+<footer style="margin-top:44px;padding-top:18px;border-top:1px solid var(--line);display:flex;align-items:center;gap:12px">
+  <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCADuAPADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9BZtPt77SFWWBJSsnBdAccVmv4e0wDmxtue/lL/hWzApTTFJ+6X/LiuO8b241F9Js5JJVhnuwriGVo2YbWONykHt61V7aks1H8PaVgZsbYj3iU/0qCTwnoU2N+lWTYPeBf8Kpj4daVhf3uoLjj/kIT8/+P05/h5pbKF8zUMD/AKiNxz/4/T1FcuDwjoS9NJsQe37hOP0pf+EX0c5/4lllj/riv+FZ3/CudLViVm1Fc9hqVwf5vTv+FfacBgz6j+F/N/8AFUO5S82aB8K6LJwdLsmHvbp/hUT+DfD+4Z0bT8eptk/wqr/wg+nb9hn1I9Ol/P8A0enSeANOkIzPqYA9NRn/APi6lXEXI/B3h/O7+x7DIHa2T/CpG8IaCww2kWBHobdP8KyG+Hdju3Je6sCeMDUpsfq1TD4fWkYAN9qhAHe/k/xo1K0XUvt4N8OyoFbRtOdQMANbIcfpUf8Awgvhocf2Hpo/7dY/8KpS/D2zkAB1DVh7rqMo/wDZqrt8OLPzNw1XWgfT+0ZSP1NGoXNhPBnh6PO3RtPAPXFsn+FJ/wAIV4db/mC6fn1+zJ/hWUPh/bp11bV2Hob56Y3gG03EnVdYAPYahIP60XtuFtTTHw+8MEZbQ9OkPUlrZDn9KVPAfhlOV0LTV/7dY/8ACsQ/Dq1dvl13XEPfGovz+dSxfDyFemva22eub4n+lTzdireZqp4I8Oo4I0XTh/27J/hUh8EeHnOTotgT/wBeyf4Vl/8ACvYFTH9s6yT/AHvtrZqN/hzE/wB3XdcTH92+PP5inZi+ZrN4D8MuwzoWm/U2sf8AhQPAnhsOSNE04Hpn7MnH6VkR/DRVkDjxDrvHZr4n+lWV+H+0ca7rXbn7WP8A4mq1J0fU1V8IaEn3dJsV+lun+FO/4RrSowPL020B7fulH9KyT8PlZsnXdZ/C7/8ArVEfh0c5XxFra5Ocfah/8TRd9BadzoBo2nKu0WduB6CMUyTQNNmPzWsPHYoKxl8Atg48Q62OMf8AHwv5/dpD4CkX7viLWeBjBnQ/+yUJsfzN2LSLGEfu7aFQP7qAU/8As+04Bhj/AO+RXODwFdJgjxRrW3PIMsX5f6un/wDCD3YH/Izaxgn+/Ef5x0XYNLudCdOtW/5Yxkf7ooOmWmP+PeP/AL5Fc63gi7wR/wAJRrQHqHg4/wDIVRyeCr+PLjxZrPHOMwc/+QqOZoEkdN/Zdow5t4/psFcL8TtOtra10yaKFI5BfRDcigHvxXR+Br641DwxYXFzO1xM8SlpXABb3OABWH8WD/xLdOwQM3sfX8aL3QLc9IiP/EpGTyHx+lcj4n/5Cmg84/0s8/8AbN669c/2QvoH/pXGeJmB1LQiGHF56/7DUhPc6UNn8KAxzimZUjkZHvQWBrQRIDtH9aCck800N054phOM+lJgSKR170/cPWoVkBHHNLuHekA4NzTi/qelQlsHPSsnxD4m0/w1pVxqOp3cdnZ26F5JpWwFApNpblJXNh5gBmuF+IXxj8L/AA3tjJrOqRQTMpZLdTulf6KK+Svjz+3FdzST6T4KD2kQJV9RkGHcf7Cn7v1PNfJeq+NdS1ieWe+vJbqeVtzPK5Yk+5NJKU9tEae7Hc+yfiD+3bduZYPDljFax5wtzc/M5HsOg/WvHtW/at8easxLa9coM/dgYRj9AK8EF60knLeYD1z0qQ6hLAwVUHPoK0VFdRKpbRHq91+0d4yM3HiLUgeMbbhgeeex9a3dG/av8c6O0Yl165YKc5mw4P1zXgk8rTuWxsc9hjinpNcOpR5AWHCh+hNX7KNthe1Z9l+Ff27Nbt8LqMNpqCL94hTG/wCY4/SvoXwB+1N4M8aRRrJejSrpuDFeMFGf97pX5SXEskMu6RDEpHan2es3lnteJ2Udcg1DpW2F7RPRo/baz1K3volkgmSaNhlWRgQfxq6rZr8n/hJ+0n4n+Hd9C1teSSWJYNLanlGHfg9O/Ir9BPgt8ftD+LujxzW0q22oAYls5HG4EDt6is3dBZdD13ftHIz9KUAHHrUEbE/MTxUoboaZI/ntzTXzxS5zSE5HJIpiE9iKXpSc+tJuPY0AKeTUUv3G/rUmeODzUU/+rOfSk9hrc5z4bfN4K0g5zm3Q/Xisn4rZOnaYDgH7cmP++WrY+HK+V4O0tc8LCoz+FY/xUbNrpSkZJvUx/wB8tSW2hW0j0lTnR1Hffk/lXF+J0UaroOABm8JPv+7Y12jEDR1JwB5mAT9K4vxTh9W0DH/P43/op6SJe50K9KUYGcimoaXNaiFBJHpQ2SPekB5pGJHTpSYCr0x3pCxA9abuqteXqWkEk0rBI0UsSTgAVLdlqNdjnPiN8RtJ+G3h241fV5xFDGPlQctI3ZVHcmvzZ+O37Qev/FnUm+0ztb6ZG5MFjE/yKOQC395sd/yrd/ap+O0nxO8YTWtpMRoensY7ZM8SHOC/vnt7Cvnq4nZ90jHjPANOnDm96RcnyqyHzkyqHYjJ9W/pVZox1Vg31NQy3Ek+ARkAAYq1ZWTPIgaMuM/d9a6djK1ySO1lZS+0BFwCfT2qy8ZnSARKoZFKkbupyTnn6/pWhDolw0eFikZSQRgZzWhB4Wu1jD/ZpGz3YcDrxUe0j1ZsqU30Oes7X95unVyvcnoKS+VIVDRuG/4ET/Ou6svCd60AYWb+YeQVHH6Uk3gu4Kv51sCvXkYIqfbQ7mv1edtjzj7WzOVZhtJ4B5FMaNVc8Dg9q6698JBUbER3E96xbrQLuJyyQSKoA4qlUizCVKcehStrgwhx8wQ8NjrivQfhd4/u/BHiWz1GwuCskEgO1iQJB6GvN5IpoXO5Cp9Gp0DTb0ZP4e3Sh2krEJOLP10+Bnxgs/if4e8xS0d7b4WaKXG7J5zx1HvXqav0OOK/Kr4J/FjUvAuu2d19oCxKuH29WHpX6S/Dv4h6d8QNGjvbCQsuBvVhgg1g1ymj11OvVnMzKR8uAQ1SFiO1MRiSeeKeDzzRchoUHgZpQc+lNPzEjtThwMZpiDqfpUM+7y5MAZ5xzUrHA9aimc+USKT2Gjnfh6RN4N0iUAfNbowP1FYvxUYkaKM4BvB/6C1a3wxVl8A6CpJyLOIHPrtFZHxQw1zoSjr9qJwf92ltEa+I9Snx/Y6ALgb/AOlcL4qJGraD/wBfh/8ARb13kuBpQUkZEnb6Vwfig/8AE58Pgj/l7b/0U9TEo6AcCm9ycZpSCPcGkHBNbECgDd7040ij86M5pNiGk14J+2F8QJfBHwsuI7eQpdai4tUIyCARlsY9hXvROM18u/t4aLLqHw+024SMsltd5dv7oKkfzrORotz87r25+0lmf7xPrz+NZ0khbCHoOlat3ZBGkx8uBwffNR+H9MfVNQihQHexxxXVJpK5Kg5Oy3NHwh4Nu/E+oLDbj5ON0mOlfTXgb4DadapE0ytcuQMlucVY+GvgWDQdPgCp+8IBZsV7bocSRIuFwPU18zisZKTtB6H12DwMKUU5q7OVtPhBpibVjtEAA6kZxXQ23wv0xIwotUP/AAGu4stm3HHNXFQA5wK8l1JvS56nLFdDjtO+HlhHAI2tkAPOCKL74eaUUP8AoqHPYr0ruYVVjkDFDxKr88ipvNdSW12PIZ/hFpbztLJYxnnIXYOa5HxH8MtOtInP2TKgcKOMV9ESwxyDp+Nc7rOkQ3QYOp2kVsq0o9SYxT3ifFvjDwbYrvU25jz90AZP6VxI+G9wJGlEbiMHIVgRkYr7MvPB+mJOz/Z0ds5+YVQv/DltcW7xRxLtI6Y7+or0qWPcVY4a2AhUfM9D4inWawujGeNpxgdK+vP2L/He7xVFpc0hRpIWVV3cMRz0/CvEfil4Uj0y+lYck5PT/Cuc+EXiebwx460m8gmaKSC7jYkZHy7gCPxGa9ynNVI8yPl61J0ZuDP16hORmpwBxVDTZfOtom65UHP4VeHvQc9hSOTQBikyAccUvGKroIKhn/1TDpU1RXIIib1xxUS2KRgfD4bPB2kjOcW6c/hXP/Ex86roP/XZ/wCQre+Hcgl8FaM+c7rWNs/8BrC+Iq7ta0EdhI5I/AVTd4jS1PVrjH9lr1yW5P4VwfiZAdY0HP8Az9N/6Keu9mYPpWP4g/X8K4PxMhGq6CGO4m6bJHGf3T1K6h1NxTSumQM08YAGKaRzWtyBuD60hXvTiO9NYn1xSHYaTmvDv2vY4n+Deps4G9ZItrHsfMA/lmvb2bjNfNP7bmtm28A2mnox33FxvZR0KqO/4kVEi4q7PgC8t/tXmAduB2rt/gv4CvZ9U+2yWx8tW+VnGM+tTfDDwiuv6rHHICyM2SG5GK+nrPSbbSLWKKKJIkRcfKAMVy4uvyrkR62Dw6clUkJpGnG2RQBnt+NddpsDYQBTnFcpb+JdPtbj97dxoAOpYVuWvxH8OW7rG2pW2T6yivnJ05vofSe2iju7CKQIOM1pxo23lefpXIWfxK8OcKupWxJ4H7wda6Wy8R2N4m+OdXB6HPWsvZtbi9pfYu5KtgLxil2sxIPPpinC5ikUYIJ9RU0d3DGwDsM+9VZEuT7EDW7EcKRj1rOvrN2TpnrVvUfGel6fkT3MUe3rubFcPrnx58I6e7RvqduzjsrZ/lR7Jy+ESq8r1C70uXLsyjPQZrOltvLBU5+hGa5u+/aI8NSbjFOzZ6MFODWNa/GLSdVvBicqD8uK1jh6nVDeJpvS5V+I3gr+17GaVIhJhc4xzXynqekz+HddDAFCH4J6V916Vc2+p2QkjffGQQQw5r5v+OHhpLLXpNseEdgyYHGDXrYOo4y5GeRjqcakfaRPvz4IeLG8Z/DPQdVk+WWW2USf744P6ivQo23Lx+deLfsqrJF8I9KhdQqx7guAemTXtAHOc16zPnPUeOMA9aWoyMkcmndDSGOJ21Fc5MLn2PWpQR+NQXWRC5HXBpPYa3Ob+GS+V4B0BD1WyiB/74FY3xBfHiXQAThf3vH/AHzW98PhjwdpAxgC2T+VYnjxQ/iXQgeMCUk/980fZGtz1Elv7NHoW5P4VxPilc654f8AQXL/APop67QOf7NHcbq43xLzrmgc4/0l/wD0S9C2YnubijIH0pp56UucDPtTSDuHpWhImTTWOOtO4PsaYRmgY04PWvH/ANpvwXF4r+Gt+wiMtzar5seASeOowK9ff64rwH44/EbUdK8QpoNvNJZxzRBhKEDK+exyKxqz5I3Z04ek60+VHyv8GYn0LxCy38LWwEbMGlUoMZ689q9H8eeKrFtLeCK/iiMgP7zeACO/PT9axfFGm+J/HAOg32qJH5S/abS9ih2yJ/DtJBGRg15t4E+Hl5ofjHW7bU2+2XNoiFHydr7jndg9enevPk41PfbPVh7Sl+7sWLrwLrWqT5idre1bnzrqZYFb3G7kj6VxHiPw7LoRVW1WwnjPJnt5ZJYwfTdtwTXqeq+ELm8uRLNGZ0znY+cVZ8WeErzxL4fsIbJRaXNnkLvUFMH2/wDrVpCsk9xTw9SzZ47oek6hLOs9heW+oKBuaOOUhgPowFexeCfidcWksNpdySQyx4Gx8jGfWl+FXw/l8Km8m1yBNSkkiEEUEKgKq5zk8DJ9D196PEHhtJ7kRvHIvP7uQn94n/AhU1pQnozTDwq09T3rw9r081urtdq/fczAAD05q/qutmSwlLXacA52PXyB8NPhp4h+I+tajYya7cW1lZuYHlDE5AOMDt2qx8UvhJ4g+Ev2KW2125udNnkETSAlTGcjsD9a86VCHNy82p3KvUcebk0O28e68+qyT21i8l44/wBYI2JVfTJ6CvGdb0G9slW6uYmMkhbyo44Wk345PPA4FfQ2l+EIrC0jtIkKxMoLM+SZD3JPUmrHi34bN410e0068h8qC2J8ma3XayA9R9DXXSrQpqxlVozqq54b8NdG1bxNrSaakSwZRZHEttHnyz/Fg4JHOeDXsVz8LbfQyXivNMupBytqT5EnTnAPBP5VoeDfg7H4HMkukzXBnkQxs8igsB7HHHb8qr3Xw4vW1Brht7tuzvflqmrXU5e67I5oYOorNsTSfjJoHhHZZXEjW7YIeGWNg0ZAB54wRzwQTU3iDwqfi2tvr2lX1nBp0R8t7i5mCKWyMDn64rlPG/wtj1zxf4Us7reqXLyiVl4YooDY/M16TqPw+0jSdN0HTraEx6dBdZ8nceSQeTzycgUlOnG01uaShVk3Tex9PfC1tN07wtp2lWl3bzS20Cq6wyh8HHPI967lRxXzP8KbK7sviJaJFKsVj5bHyhnJOD3xz+dfS6HpXp0qvtY8x4+Kw/1efKnceBmk79aUKDRtx0rc4heBzVa8/wBTJz/CasY9elQ3gzC+Ou2plsNbnPfDl93gjRG7taRn/wAdFY3jJzJ4w0Vc4/dynH4rWt8O0dPA2hIAuRZxAg/7orJ8XKB4u0cEAN5cuSOO60L4Rrc9PUH+yuDn5xwfoa4zxK2Nc8P7u1y//op67SPnSwcfxj+tcV4n517w+D/z8P8A+inp9GS9zdxxkcU2ORZFyrBh6in4AHPSmE4IPatAI3jBOclT7U394O2fepyAQDmmlc5x0oAqnc7EglSOorx/4/aFHLZWWreUDNbv5bNj+E17GyASEjO7GM5rl/iToja34Q1C3WPzJPLLKo7kc1hWjzQaOvDVPZ1VI+Xob+3Piy2RVIkeExk/qKbr9lFo3jDTtXaLFpdIbK6kPRMnMbH2zkf8CFY9xdNperG6EZZANruBgx/Wu5UQ6lYmO4CTxSrgq3Rga8HZWPqJRUmmjbi8PW0qDaq59B0q0vh+3jC4gXcOelcpZXGt+HLcJZR/21Zr92GaXZcIPQMeHH1wfc1aHxat7eAG+8P67aSd1+wtKPwZNy1xtS+ydKkrWkb1zpcbRELGi9idteZ/EO7s/Cul3N9Mu5x8sSDGXc9AK6q9+Isl/bbdM0LUbiRlDK08XkJz6luf0rjYvBl74010XniCeNBb8pAv+qi+mcZPqSK0gnvIUmnpA6X9njwXL4b8MLJdpm8vXaeZx6k5rsPip4Li8beFbzTZRgSJlHA5Rhyp/MVZ8E6vpklwbKG7gkMIAbY4OK6XxPqum6bprTy3EUcYHzM5AA+uaxm258yLjFKPKzwb4Z64ur2v9j6mVXWtNPlToW5cDgOM9QRXr1jZKqAKo55z0rzrVPAui+JJjrGj6gsWpRjek1pIM/TjqPap7DxJ4p05dk2nxaoqAEGN/Idj7ggj8citHaWqEnKKs0en29ll+QCO9RXmnwqxJAAHJ9q4JfiF4tvQ0dj4JdJQcF7m/jVPrkZzUv8Awj/ibxJGjeIdRisbQnL2GmbsuP7rSnnHqABWbVviYue+yKenRL4q8b3OsLHjT9NiNnZydpnJBkcHuOAv4GtDxE/2ZbZ2i3LHKGO4/UVthYrGCOG3QRRRKFWONcBR6DFc94ms5tSMQVwsSAs67vmY9hitYu68iVGzVzr/AIbl7nxzbFBhI0JJz2wf8a+gYq8Y+BGjNJJd6pKhUACFAw/OvakHcV9DhoclNHzOYVOes0ugpB7Uobjnijv70YrqPLFJ44qveMBA5/2TU46c1VvwRbS/7pqXsxrcx/AvHhHSev8Ax7J/IVzXjGTb440oEkZhf+Yro/h/lvBejMe9pGf/AB0VznjEZ8a6USP+WLj9RTWyGtz1lAP7HJA/jA/Q1xPiU413QM97iT/0U9dtCwbR3wMfOP5GuH8TnGv+HwMf8fMnX/ri9HRks3xwBTHHIpwJwMnjFN5ycgAdua0Aac9OaUHtTulIeRQBG6kEkU2WMSIwb0qRhkY7UgXAoA+eviV8Oho2q3F3axZtbo7iNuQp7j+v41xsDeVHsJwU4wOK+r7y0ivIGimjWSNuCrDINeRfFPwPZabaQ3djbLAFYhxGOOe5ryq+HteSZ7eHxfNaEtzgLS4CkH1710FmYgnzgEZzzzXGi48piT1z0q4NWKwtk4xXhzTufRwakjr5J4GXCBQPYVzetaPb3quhOwtwSveuVu/GFxbyPkBIl/jY1Sf4iWLAKkjXc3QRxZPNNU5bhzxTNrSvDFlpkkhs0S0nc/NNAgRm+uK3JtNWOBUu5vtgbGVnUMD+FcpY+IdUnkGzS3UHBHyE1uyXmuXEAKaUynA5bjNaeykxqSZcsbfT4rtSsKw4GAI0AA/IV0VtqNsZSildy+1cHcTeILQl5LBJFHVdw3AVjS+Lbq5uhElhdW8w6ttyB+IqJUn3DnR7LHfx4IGC2OwqreXIbIDc+ua4fRNQu2cx3BzxkHoa3ft3Rc8VhKNnY0W1yediBx375rT8OeD7/wARXCstq62x/wCWz42HnBrIgV7yaOJMlnYAYr6E8M6WNK0a1th/Agz9e9evhcOqivI8PG4p0dI7kug6JBoWnRWsKYVRycdT3Nay9KaDkU5ele2lZWR8025O7FwDzQcDvRTSMdKZIcgdagvDm2k7naamA3e1R37bbWQ9MKamWw1uYfgAbfBmjA9rSL/0EVgeK/m8b6aDxiBuPxro/BJz4T0rvm3TkfQVz3iQbvHdlt6rbfn8xqt0iluenR4GiyEHo6k88dDXD+IGM2u+H22lf38hwev+qeu7iVW0NwQCC4yMexrh/EPy+IfD4xwZ5B/5CekyDdBIXmk3AkZFOABHAobtWgDWOf6UnJ7Yp/Wk6UAN20nQ04nFNIwaAEbrWdrWkQ6vp1xazDKSqVPtWl3pCBSaurDTcXdHyp4z8O3PhnUZYJlIA5V8cMPWuSOosrEY4r6I+OenrP4bW4A/eRuMEDnnivmG7vVilZSdr56GvCr0rSsj6jC13KF2aiCG8GJUDKeoNXbaztbM74LeNG7lVArEsZllYbW4PcHpXW6NBGQpcqTj1rhk5RPTjyy1sOj8UalYIPs9kJwemR1qOTx74qmuCsWmCLaMH2rr7e5s4YgAqk+mKtxX1k5BOzPep9q+pVuxxUWsa1qR3XUZU5OQR0qVmeJTvT5iPTmuwubi08s7Cp9MAVg3rROW2ketZczbNdkYfmOSTt28ZIHFXLEZZVVjwfWqF1fRoNobLH9KvaIfMuYwVz8wOSOlbwhdowqz5Ys9c+Gngsyzx6ldIQinMasOvvXryDAqhpMaxWMCKOAgAx9KvjpX0lOCpxsj4uvUdWbkxwxTgaauDTsZHFanOKWwR6UckGjBPtS0ARqClQagSbOfP9xv5VZOGBGDVe+jH2KYH7pQ5P4VMtio7mR4HBXwjpG7qLWPOP8AdFYOvYfx5bcDAteR/wACNdF4KTb4U0oEHi2j6/7orB1aPf49TBIC2ik4/wB5v8Ka2C+p6ZGQujvwSCwGMexrhvEjZ8R+HeOlxIf/ACC9dvGf+JLIOvzj+RrhfEPPiPQfXzpMZ/65tT33JOhDYHNLupq4PWlPbHSrADTTxSFs5xS5NACZ5pTim5Ppj60tADSfwoDDvxTRIXdl2MoHQnGDQxFAHE/GCFZfBt3xnBU/qK+Tda0WO/Vhja/QN3FfWnxX+bwdeAE9B/OvmwWu+TjB9fevExknGd0fSZdFSp6nl09trGhOSjGaM+nUCpLb4k3OnQGObcSOmRyPavS7jSBLHh0GPTFc/qfgq01BXUxKrHoRkGuVVYT+NHqypSj8DOUh+MpiBEhGc88mp2+MNs2zDtyOSD0qtd/BQXJJhYKzHqScCjTv2d53kXzrslCeoHatWsO9TC9dbF+2+L6scLlua0YPHOo6shW2t2HGS56Vq6P8E7DRlXzFE7ddzV1ln4etbMBI1CgcdOlc05Ul8KOiMas17zMDQdBuJAJrtiZDyB6V1WnRLb3MZ4G1ucirCWxCdelKYvKdSe59OayjP30ypw9xo+ntJdZbG3dcYKA8fSr+PSsDwfcCfw7p8mesK/yrczz1r6pao+GmrSaH05WwKZyfelGD7UyCUYwMUYyaaDjinZBoAMevSquqHGnXBHaNj+lWy3FUNX/5B10QTxE/A+hpPRDW5U8GHf4X0s5zm3T+QrntSIfx8wBORaJ/6G9bvgtdnhbSxzkW6cfgK5+8YH4hyDv9kjz/AN9PQthrdnpkfy6I3XBcf1rhPELFfEugZwQZpR/5CY/0rvAD/YxHfzAf0NcH4jTHiXw96CaU/wDkJh/WhknQjAHakLZ6cUnUUwEhvu4Hr2rQB7HGCaYC5kyMeXj8c0u7JpCT6UADYJJxSq/+TUbyALzxWFrHi2y0oMDKJJuyKefxrOVSMFeTNYUpVHaKN9nABJrkfiF49s/AnhjUdWuD5v2WEyeUp5OK5PVvH+qXBkWBlgQ5IIGTivOfi5Bcat8PNZt43dpJIgM8sT8wz+ma82rjVtBHrUcvkvemcDo/xy8YfE57me/ZLLSHb9zbRqBuHueprb06UNJ0GfbNc7oOmrp2nxW8aBVC9MVtWvyNnHPsK8ytUU3oe9hqXs4nWQW6Sx5IGcd6oXek7HLIDz3p9hejIBPXHNaD3AdcGuHZnbaxkR2xXgjcCe3atC3vXhKjBwBxjinquWGBnPU56VOlojNwuPXtRcCu8ss3zEkfn/KiJdrMSCSKnnxAh2jHriqaXG7PrnPXpTvcqxbYjZ0GT1zWTe3JyNu4AHk81NJdE5I6Y6f/AK6z5NzEk9z0FJXTuS1obFn+1HB8NNQ0/RddsJP7MkQbNQiydvJyCPbjp2r6F8IePNE8daWuoaJqEOoWzcboWzg+hHY+1fIfizwvbeK9FuLC7TcjqdjY5RscEH1rn/2d5NS+GevtYrcN9g1F2jBUn93OmflI9Dg9q9+jirQtI+ZxOCbqe6tGff6SAA85qKy1S21ESm2mSYROY32HO1h1Fefaf8RZbYILxPNjPBdRgj8K7DS/Een6mga3nTceqk4IP0rthXhU2Z5lTC1Ke6N0Nx60CRckZGR1qFXDAc1JgHNdByNEm7IFUtYAOnXQ6Zib+VWo8Y4qlrh26RenOCIXP/jpqZbMFuV/CQ2+HNOB7QIP0rmbvJ+Ik+OV+yR9P9566Pwowbw5p57eQnX6Vzs43+O7jJHFvH/M01sJbtnp7ts0XITJLjocVwWvOp8TaFuyDvlx/wB+zXeEL/Y2f9scfnXnniy8isfEWgSzusSebKuWOP8Alk3+FDsldjUXLRHS7uPSmlguOa5PUfiPptqGEW+4YdCBhfzNcfq3xE1C93CErbR/7AyfzrlnjKcdnc9ClgKtTVqx6hearbWCF55kiA7scVzeofEawiDC33XLewwPzNeWveXF0S8zu7+rktipYQBjIyPYY4rz6mNm9I6Hq0sshHWepv6t441LUi0cf+jRHoIzyR9awiJHy7u2TzknNTMgx0xxSbNrEDge9efKpKesmenGlCHwogZQyD1A706aNLu2MUhGyRSjAjsal3BlIPH0ohwp28AH1rO50WPPZtJa3leEjDxnacCqsluyNypwBXba/pjZ+2xLuaMYlUdSvr+FYzxJerkcg85XnNQ9DRaHPpKVPcD3q5FekoCTx6mnXGmNzhcg9c8VVi09sNuBI/LFS9UWi5/aBHy5HtjFW7e+kbo/y9Ky/sjOOOo9aVLeeIn0FIrc1Z7ljwW9eBVGWc5IH5GmRGdjgrnP4GrkenllBKkk9qA2KkcoY+/pVuC0eUsxB5PfvWlYeHmZg+MZ9a2F04RR4IGfpxTuZyZyt5bLawSSOVRVUlieAK5Tw3AsenrfxjzFec3UbEYIBORwfatzxkJNTuYdCtnxLOBJcMo+5EDz+LdPz9Kkv7MxNYabbp808qRBUxwmRuP0Cg1pF2Rg3d+h6PLtms0YZ+dQfpUdkXaDO8hhgqRxVuZQsIU4AA7mq9lhIsBfYk0Xs9CrJrU2NN8f6lpJEbutxGO0mc/nXZ6N8RrG+CrcH7NJ78r+deY3ln/GvGR+FUWDRuOTj271208XUhpc4qmBpVemp9C2l/FdRiSKVXQ8hlORVXXZN2i6h1GIHGcf7JrxDTNfvdKdXt52QKeATwRn0rqh8Tmk0q6hvYCxMTrvj6/dPOK9GGMjP3ZaHjVsuqU3eOqPQPCyhfDunY5AgT+Vc2zD/hYF2CM/6NGR69WrovC53aBYE4/1K8fhXOTov/CwLg7Tk2sfOeD8z16K2R41tWj1RMDRWPHMg/ka8T+N7N5ughWKkXMjZBwR+6b/ABr21Af7GbHA3jPr0NeKfGdS13oQ6Zmk5/4Aa58Q7UmdWEV60TgYX3YBGR7mlfgBu/TmnhVTORn/AGutIIyVOBuP518u5XPuLWFV+Ccc9+asQnpgE555qBIiDhuOnarSLsUnGPTNK4C4xyevWnNtcct+FAOFyRxjpUoCtHnJJ6imSV5F4yOfxwaZnyfnBJbrVsoSSCABUTQ/Mctg+lMonSQMuTjaeueMVzmp2H9kSNNDHm0PLbcfuz/hW/GhAyCCD+tKSJFKsQwPBB5FSBykd5C/zDncPrT4oonYEKCSec1pT6HEjkw4XJzt7D6U2OwVRkZzjpUPQrR7DH0yNyFGMkZ4pW0MMNpfj0FTQstqwJycdKtx3ofHQD3qQ16FBNDjhTPJP0p7RxRMC3QcVZkujnavTrVQ2T3T5bI5/OjcF5ky6iIyyr/kVk+I/FkWi2TSyKZJXOyKJeTI56KMVo3lrbaRay3V3MIo41yS38h7np9TWPoPht9Tvxruqx+Q3ItLVicwxnuw6bz39KaV92RKSWiM7w5pkun2817enzNRu28ydlbIU9kH+yo4H5966Twvo5e7k1O4BQ4KQKeynqfxxV97GAzhnAEa9B61fWXch6A9OKu99QUegXQB+VB8zdx1/OkjHlrxkdj3pscIDF2Jz6ipsiRcYLelUMQfOrA8++aoTx7jwwx7ircUh8084qC5YByOi+vFNjW5SbbkqQPXiqOpOTp15yCfKfAzzwD0NXLhdqcg8fxelU9QRn0+72jGIXAJ/wB0047oVT4Wz37wod3h3Tz/ANMU/lXP3Hz+PLgcHFvHn82rf8J4Tw9pynkiBB+grnpB/wAXAuz/ANO0f82r62OyPgHrJnq8ef7HkGc/OMfka8Z+Mqf6b4fySf38gP8A37avZoCp0dyME+YB+hrxv4zYF9oAJ/5bSHBP+wawxOtJo3wf8aJwF6qpkDPXnFTW21IlxyfemzzRoobhj29qrxTKZgmDj7xOc18xys+5urblsku5I454Ap6sD8pAxRuQJkNg45PehSBjJ+b3NTZkOS7jgSR3C+3NWIcKhAOR0xUP904z+NTB12qTgenT9KtxZCkmNyR/smhxwM4x3OaGUHodx74obIAPA/DqKLM0uu5HsYcqAMcc0pw7DOQenAPHvTlIBJ4GfSnnYwBIGelS0LnXcoyF4+p3Hscc1XN6+cEAnNahI3dsHqTVO5t0cBs5xQl3HzIryOGcZUqAcE9fxp8CwsxJJAHc0Las4AXnnkE+1RvZSRlSW5HXNPlTHcupbRg7slvrTjIkYJA5HpVZUuVVcY9Mk8mkSCRm3O4XJ7H/AOvUqKE2n1M/VrJNQ1K2uLiRpLe3+dLbb8vmZ4Y+uO351dGoTOxOz2wc1MLUZyW6+meKs29oka8jt9aqxKsncrwRyynhcL3LCryW6xKSMlj1qRdq85xgdc9aGKr95gSeTk07XNE0IuSR/D1z3poYnJI4HvSltu4AAAfjTFJDE8E+gpag2hrABzlcZ9KbdLlVOAfbvSySEjJOBn60yY74yC3/ANelq9BXsU5f9Ue2OuRwKgvXA0q8O7gQP9fun3xVvd+7znoD0/8A11n6s6poepMv3hbSHjt8hqop31Co04nvPhn5dEssjpEo/SsCYH/hPLhgc5to88dOWrf8ONu0KyPrCp/SsFmU+N7nkAiCMZI9zX1y2R+fvSTPS7SRjpkqkYxLwCfrXP8AiPwZo/i+GOHWdLttSjjYsiXMYcKcYyM1bN5JBczBWK4c9DU0eqXCOP3hp2vuZq/Q4tvgb4Fzj/hE9KH/AG7L/hUX/Ci/AYH/ACKeljPf7Mtd9/bNwmW3nrUUurTyDLNnNLkS6F80+5wn/Cj/AARGTjwxp6g/9MRTl+C3gyPhfDtko/2Y8V3S6zMy4IBI9qjfVJDuXao+gFHIuyDml/McO3wS8FuMnw5ZdxnZTU+CXguLJXw/ajPsf8a7eLVLhcR4RowvVhljT/7ZkVgDFGQf9gUnCPYfPPucI/wR8GNg/wBhQccjDMP61Gfgb4O3Z/sWPHqJH/xr0D+1nz/qoyMZwVqT+1mIAMERHbC4pcsewc0+554vwO8HDAGjIPpK/wD8VUcnwK8HsxzpT+nFzKP/AGavSE1EHnyYzj2xTW1Bc5+zpT5I9g559zzkfA3wiAQNNlAPX/S5v/i6YfgT4POM6bLx0xdzD/2avSBfxsQTAoPsad9ti2bjbjp2JpOEOw/aVP5jzI/Abweg4sLhR1+W+nGP/H6hX4EeEpWBNleD3Oo3H/xdemzPBcEMYSu3kbWNKtzCiD9yTzjk0uSPYr2lT+Y82/4UJ4TUDFreD1/4mNx/8XSH4B+EnIJtr04/6iVx/wDF16Wt3BJx5DKVPOG61K1xbMf9QQB/tUckOxPtKn8x5TJ8CvCSH/Vaj+Gp3Ix/5EqWH4E+FDhlhvz7/wBp3PH/AJEr04/ZQ3zQtyMjDdP0p0S2uDtjkHtupezh/KV7Sp/MeZf8KI8MKMBNRH/cUuf/AIukPwF8LN/BqX/gzuOP/H69VVbbZ92T67hTttuQBtfB9xT9nDsL2tT+Y8mT4BeF4wQBqg/7ilx/8XSn4EeG85EmrIc541W4/wDi69W8qBT0cge4o8u2c/dkHGeopOnDsHtan8zPJm+AfhvdxNq4yCP+QpP/APF0H4C+HlBVbrWAD1/4mk5/m1eteTbM2P3nT2pzW0G4D5/fpU+zp9ivbVP5jyL/AIUJoB4F5rQHoNVnH/s1V5v2fvDziRWvda2sCrA6nKQR6cmvYxax+YV3MBjjikfRrefO93II6YH+NPkp9EHtqv8AMznIBHp8MVtED5aKFB9AK5QMG8eXfYG3jGfxNelJoFuibUdgvTBUf41zk/g6G11ubUPtDu7qF2bQAAP/ANdarXQy06n/2Q==" alt="Shivam Kumar" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid var(--line)">
+  <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;opacity:.75">Made by Shivam Kumar · BS ESS, IISER Tirupati</div>
+</footer>
+</div>
+
+<script>
+var DATA = [
+  ["Bihar", 53478, 60337],
+  ["Assam", 120336, 135787],
+  ["Meghalaya", 112737, 124379],
+  ["Madhya Pradesh", 132010, 142565],
+  ["Jammu & Kashmir", 133743, 146447],
+  ["Chhattisgarh", 137329, 147361],
+  ["Odisha", 145202, 161437],
+  ["Rajasthan", 151559, 167614],
+  ["Punjab", 182515, 195621],
+  ["Andhra Pradesh", 219881, 242479],
+  ["Himachal Pradesh", 218788, 235199],
+  ["Karnataka", 304474, 332926],
+  ["Haryana", 296592, 325759],
+  ["Delhi", 430120, 461910]
+];
+
+var states = DATA.map(function(d){return d[0]});
+var y0 = DATA.map(function(d){return d[1]});
+var y1 = DATA.map(function(d){return d[2]});
+var growth = DATA.map(function(d){return 100*(d[2]-d[1])/d[1]});
+var logY0 = y0.map(function(v){return Math.log(v)});
+
+function sorted(y0){var s=y0.slice().sort(function(a,b){return a-b});return s}
+function quartileColor(v, arr){
+  var s=sorted(arr), n=s.length;
+  var q1=s[Math.floor(n*0.25)], q2=s[Math.floor(n*0.5)], q3=s[Math.floor(n*0.75)];
+  if(v<=q1) return '#5ee6c4'; if(v<=q2) return '#7c8cff'; if(v<=q3) return '#ffc857'; return '#ff5da2';
+}
+
+function mean(a){return a.reduce(function(s,v){return s+v},0)/a.length}
+function std(a){var m=mean(a); return Math.sqrt(a.reduce(function(s,v){return s+(v-m)*(v-m)},0)/a.length)}
+function corr(a,b){
+  var ma=mean(a), mb=mean(b), num=0, da=0, db=0;
+  for(var i=0;i<a.length;i++){num+=(a[i]-ma)*(b[i]-mb); da+=Math.pow(a[i]-ma,2); db+=Math.pow(b[i]-mb,2)}
+  return num/Math.sqrt(da*db);
+}
+function olsSlope(x,y){
+  var mx=mean(x), my=mean(y), num=0, den=0;
+  for(var i=0;i<x.length;i++){num+=(x[i]-mx)*(y[i]-my); den+=Math.pow(x[i]-mx,2)}
+  var b=num/den, a=my-b*mx;
+  return {slope:b, intercept:a};
+}
+
+var r = corr(logY0, growth);
+var ols = olsSlope(logY0, growth);
+var r2 = r*r;
+var cv = 100*std(y1)/mean(y1);
+
+document.getElementById('stCorr').textContent = r.toFixed(3);
+document.getElementById('stR2').textContent = r2.toFixed(3);
+document.getElementById('stSlope').textContent = ols.slope.toFixed(2);
+document.getElementById('stCV').textContent = cv.toFixed(1)+'%';
+
+var verdictEl = document.getElementById('verdict');
+if(r < -0.15){
+  verdictEl.innerHTML = '<b>Sign consistent with convergence.</b> States that started poorer in 2022–23 tended to grow faster in the following year (r = '+r.toFixed(2)+'). With only 14 states and one year of growth, this is suggestive, not conclusive — a real project should use a longer panel (5–10 years of growth) and control for other factors.';
+} else if(r > 0.15){
+  verdictEl.innerHTML = '<b>Sign consistent with divergence.</b> Richer states grew faster over this one-year window (r = '+r.toFixed(2)+'), the opposite of simple convergence. Worth checking whether this holds over a longer period.';
+} else {
+  verdictEl.innerHTML = '<b>No clear relationship</b> between starting income and growth in this sample (r = '+r.toFixed(2)+'). One year of data is a thin test of convergence — extend the panel before drawing conclusions.';
+}
+
+var barColors = y1.map(function(v){return quartileColor(v, y1)});
+new Chart(document.getElementById('barChart'), {
+  type:'bar',
+  data:{ labels: states, datasets:[{ label:'Per-capita NSDP 2023–24 (₹)', data:y1, backgroundColor:barColors, borderRadius:6 }] },
+  options:{ indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{ticks:{callback:function(v){return '₹'+(v/1000)+'k'}}}} }
+});
+
+var scatterPoints = states.map(function(s,i){return {x:logY0[i], y:growth[i]}});
+var lineXs = [Math.min.apply(null,logY0), Math.max.apply(null,logY0)];
+var lineYs = lineXs.map(function(x){return ols.intercept + ols.slope*x});
+
+new Chart(document.getElementById('scatterChart'), {
+  data:{
+    datasets:[
+      { type:'scatter', label:'States', data:scatterPoints, backgroundColor:'#ff5da2', pointRadius:6 },
+      { type:'line', label:'Best-fit line', data:[{x:lineXs[0],y:lineYs[0]},{x:lineXs[1],y:lineYs[1]}], borderColor:'#5ee6c4', borderWidth:2, pointRadius:0, fill:false }
+    ]
+  },
+  options:{
+    plugins:{ tooltip:{ callbacks:{ label:function(ctx){
+      if(ctx.dataset.label!=='States') return '';
+      var i=ctx.dataIndex; return states[i]+': growth '+growth[i].toFixed(1)+'%';
+    }}}},
+    scales:{ x:{ title:{display:true,text:'log(per-capita income, 2022–23)'} }, y:{ title:{display:true,text:'growth to 2023–24 (%)'} } }
+  }
+});
+
+var tbody = document.getElementById('dataBody');
+DATA.slice().sort(function(a,b){return a[2]-b[2]}).forEach(function(d){
+  var g = 100*(d[2]-d[1])/d[1];
+  var tr=document.createElement('tr');
+  tr.innerHTML = '<td>'+d[0]+'</td><td>'+d[1].toLocaleString('en-IN')+'</td><td>'+d[2].toLocaleString('en-IN')+'</td><td>'+g.toFixed(1)+'%</td>';
+  tbody.appendChild(tr);
+});
+</script>
+</body>
+</html>
